@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Chọn Đề Thi - Học Sinh</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background: #f0f2f5; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 15px 24px; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .exam-card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex; flex-direction: column; justify-content: space-between; }
+        .exam-card h3 { color: #1c1e21; margin-bottom: 10px; }
+        .exam-card p { color: #606770; font-size: 14px; margin-bottom: 16px; }
+        .btn-start { background: #1877f2; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; }
+        .history-card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>SẢNH CHỌN ĐỀ THI</h2>
+        <div>
+            <span id="studentInfo" style="margin-right: 15px; font-weight: bold; color: #1877f2;"></span>
+            <button onclick="logout()" style="padding: 8px 16px; cursor: pointer;">Đăng xuất</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="exam-grid" id="examGrid">Đang tải danh sách đề thi...</div>
+
+        <div class="history-card">
+            <h3>Lịch sử làm bài của bạn</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tên đề thi</th>
+                        <th>Số câu đúng</th>
+                        <th>Điểm số</th>
+                        <th>Thời gian nộp</th>
+                    </tr>
+                </thead>
+                <tbody id="myHistory">
+                    <tr><td colspan="4">Đang tải lịch sử...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://sfxemmslukpximsfpwok.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_aXGbcNmPBrtmNOJo4dxgFA_Op6JcZKz';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('studentInfo').textContent = `Học sinh: ${currentUser.full_name} (${currentUser.username})`;
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+
+        async function fetchExams() {
+            const { data, error } = await supabaseClient.from('exams').select('id, title').order('id', { ascending: true });
+            const grid = document.getElementById('examGrid');
+
+            if (error || !data.length) {
+                grid.innerHTML = '<p>Hiện chưa có đề thi nào được mở.</p>';
+                return;
+            }
+
+            grid.innerHTML = data.map(exam => `
+                <div class="exam-card">
+                    <div>
+                        <h3>${exam.title}</h3>
+                        <p>Thời gian: 60 phút | Số câu: 40 câu</p>
+                    </div>
+                    <a href="hocsinh.html?id=${exam.id}" class="btn-start">Vào làm bài</a>
+                </div>
+            `).join('');
+        }
+
+        async function fetchMyHistory() {
+            const { data, error } = await supabaseClient
+                .from('submissions')
+                .select('*')
+                .eq('username', currentUser.username)
+                .order('id', { ascending: false });
+
+            const tbody = document.getElementById('myHistory');
+            if (error || !data.length) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color:#666;">Bạn chưa làm bài thi nào.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td><b>${item.exam_title}</b></td>
+                    <td>${item.correct_count}/40</td>
+                    <td style="color:#d9534f; font-weight:bold;">${item.score}</td>
+                    <td>${new Date(item.created_at).toLocaleString('vi-VN')}</td>
+                </tr>
+            `).join('');
+        }
+
+        fetchExams();
+        fetchMyHistory();
+    </script>
+</body>
+</html>

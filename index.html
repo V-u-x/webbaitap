@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Đăng Nhập Hệ Thống Thi Trực Tuyến</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .box { background: #fff; padding: 30px; border-radius: 10px; width: 380px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .box h2 { text-align: center; color: #1877f2; margin-bottom: 20px; }
+        input { width: 100%; padding: 11px; margin: 8px 0 14px; border: 1px solid #ccc; border-radius: 6px; }
+        .btn { width: 100%; padding: 12px; background: #1877f2; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .btn:hover { background: #166fe5; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>ĐĂNG NHẬP HỆ THỐNG</h2>
+        <label>Tên đăng nhập:</label>
+        <input type="text" id="loginUser" placeholder="Nhập tài khoản được cấp...">
+        <label>Mật khẩu:</label>
+        <input type="password" id="loginPass" placeholder="Nhập mật khẩu..." onkeydown="if(event.key==='Enter') handleLogin()">
+        <button class="btn" onclick="handleLogin()">Đăng nhập</button>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://sfxemmslukpximsfpwok.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_aXGbcNmPBrtmNOJo4dxgFA_Op6JcZKz';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function handleLogin() {
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPass').value.trim();
+
+            if (!username || !password) {
+                alert('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!');
+                return;
+            }
+
+            if (username === 'giaovien' && password === '123456') {
+                window.location.href = 'giaovien.html';
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('users')
+                .select('*')
+                .eq('username', username.toLowerCase())
+                .eq('password', password)
+                .single();
+
+            if (error || !data) {
+                alert('Sai tên đăng nhập hoặc mật khẩu!');
+                return;
+            }
+
+            localStorage.setItem('currentUser', JSON.stringify({
+                username: data.username,
+                full_name: data.full_name
+            }));
+            window.location.href = 'danhsachde.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Phòng Thi Trực Tuyến</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 12px 24px; border-bottom: 1px solid #ddd; }
+        .header h2 { font-size: 18px; color: #1877f2; }
+        .actions { display: flex; align-items: center; gap: 15px; }
+        .timer { font-size: 20px; font-weight: bold; color: #d9534f; background: #fdf2f2; padding: 5px 12px; border-radius: 6px; }
+        .btn-submit { background: #1877f2; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .btn-submit:disabled { background: #9cb4d8; cursor: not-allowed; }
+        .btn-back { background: #e4e6eb; color: #050505; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+        .container { display: flex; flex: 1; overflow: hidden; padding: 12px; gap: 12px; }
+        .pdf-viewer { flex: 7; background: #525659; border-radius: 8px; overflow: hidden; border: 1px solid #ccc; }
+        .sidebar { flex: 3; background: #fff; border-radius: 8px; border: 1px solid #ddd; display: flex; flex-direction: column; padding: 16px; }
+        .answer-sheet { flex: 1; overflow-y: auto; padding-right: 8px; margin-top: 10px; }
+        .question-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px dashed #eee; }
+        .q-num { font-weight: bold; width: 55px; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <header class="header">
+        <h2 id="examTitle">Đang tải đề thi...</h2>
+        <div class="actions">
+            <span id="studentTag" style="font-weight: 500; color: #333;"></span>
+            <span class="timer" id="timer">60:00</span>
+            <button class="btn-submit" id="submitBtn" onclick="submitExam()">NỘP BÀI</button>
+            <button class="btn-back" onclick="window.location.href='danhsachde.html'">Thoát ra sảnh</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <main class="pdf-viewer">
+            <iframe id="pdfFrame" width="100%" height="100%" style="border: none;"></iframe>
+        </main>
+        <aside class="sidebar">
+            <h3>Phiếu trả lời (40 câu)</h3>
+            <div class="answer-sheet" id="answer-sheet"></div>
+        </aside>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://sfxemmslukpximsfpwok.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_aXGbcNmPBrtmNOJo4dxgFA_Op6JcZKz';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('studentTag').textContent = currentUser.full_name;
+        }
+
+        let correctKey = '';
+        let currentExamTitle = '';
+        let isSubmitted = false;
+        const totalQuestions = 40;
+
+        const answerSheet = document.getElementById('answer-sheet');
+        for (let i = 1; i <= totalQuestions; i++) {
+            const row = document.createElement('div');
+            row.className = 'question-row';
+            row.innerHTML = `
+                <span class="q-num">Câu ${i}:</span>
+                <label><input type="radio" name="q${i}" value="A"> A</label>
+                <label><input type="radio" name="q${i}" value="B"> B</label>
+                <label><input type="radio" name="q${i}" value="C"> C</label>
+                <label><input type="radio" name="q${i}" value="D"> D</label>
+            `;
+            answerSheet.appendChild(row);
+        }
+
+        async function loadExamData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+            if (!examId) {
+                window.location.href = 'danhsachde.html';
+                return;
+            }
+
+            const { data, error } = await supabaseClient.from('exams').select('*').eq('id', examId).single();
+            if (error || !data) {
+                alert('Không tìm thấy đề thi!');
+                window.location.href = 'danhsachde.html';
+                return;
+            }
+
+            currentExamTitle = data.title;
+            document.getElementById('examTitle').textContent = data.title;
+            document.getElementById('pdfFrame').src = data.pdf_url + '#toolbar=0&navpanes=0';
+            correctKey = data.answer_key;
+        }
+
+        let timeLeft = 3600;
+        const timerEl = document.getElementById('timer');
+        const countdown = setInterval(() => {
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            timerEl.textContent = `${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}`;
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                submitExam();
+            }
+            timeLeft--;
+        }, 1000);
+
+        async function submitExam() {
+            if (isSubmitted) return;
+            isSubmitted = true;
+            clearInterval(countdown);
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Đang lưu điểm...';
+
+            let correctCount = 0;
+            for (let i = 1; i <= totalQuestions; i++) {
+                const selected = document.querySelector(`input[name="q${i}"]:checked`);
+                if (selected && selected.value === correctKey[i - 1]) {
+                    correctCount++;
+                }
+            }
+            const score = (correctCount * 0.25).toFixed(2);
+
+            // Lưu điểm lên Supabase
+            await supabaseClient.from('submissions').insert([{
+                username: currentUser.username,
+                student_name: currentUser.full_name,
+                exam_title: currentExamTitle,
+                correct_count: correctCount,
+                score: score
+            }]);
+
+            alert(`Nộp bài thành công!\nSố câu đúng: ${correctCount}/${totalQuestions}\nĐiểm số: ${score}/10`);
+            window.location.href = 'danhsachde.html'; // Tự động thoát ra sảnh chọn đề
+        }
+
+        loadExamData();
+    </script>
+</body>
+</html>
