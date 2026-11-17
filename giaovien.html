@@ -32,12 +32,24 @@
         .exam-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 6px; border-bottom: 1px solid #eee; align-items: center; }
         .badge { display: inline-block; font-size: 12px; padding: 2px 7px; border-radius: 4px; background: #e7f3ff; color: #1877f2; margin-top: 3px; }
         .btn-del { background: #dc3545; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+        .btn-view { background: #1877f2; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; margin-right: 4px; }
         .table-wrap { width: 100%; overflow-x: auto; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; min-width: 450px; }
         th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-size: 14px; }
         th { background: #f8f9fa; }
         .scroll-box { max-height: 360px; overflow-y: auto; }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
+
+        /* Modal xem chi tiết đáp án */
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; justify-content: center; align-items: center; padding: 16px; z-index: 1000; }
+        .modal-box { background: #fff; width: 100%; max-width: 720px; max-height: 88dvh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .modal-header { padding: 14px 18px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .modal-toolbar { padding: 10px 18px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+        .tag-ok { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #d4edda; color: #155724; font-weight: bold; font-size: 12px; }
+        .tag-err { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #f8d7da; color: #721c24; font-weight: bold; font-size: 12px; }
+        .row-err { background: #fff5f5; }
+        .detail-section-title { font-weight: bold; color: #1877f2; margin: 14px 0 6px; font-size: 15px; }
 
         @media (max-width: 768px) {
             .grid, .row-2 { flex-direction: column; gap: 0; }
@@ -73,7 +85,6 @@
             <label>Chọn file đề bài (PDF):</label>
             <input type="file" id="pdfInput" accept="application/pdf">
 
-            <!-- Khu vực nhập đáp án Trắc nghiệm thường -->
             <div id="mcqSection" class="part-box">
                 <h4>Đáp án trắc nghiệm (A, B, C, D)</h4>
                 <label>Số lượng câu hỏi:</label>
@@ -83,7 +94,6 @@
                 <textarea id="answerKey" placeholder="Nhập liền chuỗi A, B, C, D..." oninput="updateMcqCounter()"></textarea>
             </div>
 
-            <!-- Khu vực nhập đáp án Tốt nghiệp 2025 -->
             <div id="tn2025Section" class="hidden">
                 <div class="part-box">
                     <h4>Phần I. Trắc nghiệm nhiều lựa chọn</h4>
@@ -175,7 +185,7 @@
             <button onclick="loadSubmissions()" style="padding:7px 14px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor:pointer;">Làm mới</button>
         </div>
         <div class="table-wrap">
-            <table style="min-width: 650px;">
+            <table style="min-width: 720px;">
                 <thead>
                     <tr>
                         <th>Họ và tên</th>
@@ -194,10 +204,33 @@
         </div>
     </div>
 
+    <!-- Hộp thoại xem chi tiết đáp án -->
+    <div id="detailModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeModal()">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modalTitle" style="font-size:17px;">Chi tiết bài làm</h3>
+                    <p id="modalSubTitle" style="font-size:13px; color:#555; margin-top:2px;"></p>
+                </div>
+                <button onclick="closeModal()" style="padding:6px 12px; border:1px solid #ccc; background:#fff; border-radius:6px; cursor:pointer; font-weight:bold;">Đóng</button>
+            </div>
+            <div class="modal-toolbar">
+                <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer;">
+                    <input type="checkbox" id="onlyWrongCheck" onchange="renderModalBody()"> Chỉ hiển thị các câu/ý làm sai
+                </label>
+                <span id="modalStats" style="font-size:13px; font-weight:bold; color:#d9534f;"></span>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://sfxemmslukpximsfpwok.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_aXGbcNmPBrtmNOJo4dxgFA_Op6JcZKz';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let allSubmissions = [];
+        let activeSubmission = null;
 
         function toggleExamForm() {
             const type = document.getElementById('examType').value;
@@ -452,10 +485,12 @@
             const { data, error } = await supabaseClient.from('submissions').select('*').order('id', { ascending: false });
             const tbody = document.getElementById('submissionList');
             if (error || !data.length) {
+                allSubmissions = [];
                 tbody.innerHTML = '<tr><td colspan="7" style="color:#666;">Chưa có học sinh nào nộp bài.</td></tr>';
                 return;
             }
-            tbody.innerHTML = data.map(sub => `
+            allSubmissions = data;
+            tbody.innerHTML = data.map((sub, idx) => `
                 <tr>
                     <td><b>${sub.student_name}</b></td>
                     <td>${sub.username}</td>
@@ -463,9 +498,148 @@
                     <td>${sub.correct_count} câu/ý</td>
                     <td style="color:#d9534f; font-weight:bold;">${sub.score}</td>
                     <td>${new Date(sub.created_at).toLocaleString('vi-VN')}</td>
-                    <td><button class="btn-del" onclick="deleteSubmission(${sub.id})">Xóa</button></td>
+                    <td>
+                        <button class="btn-view" onclick="viewDetails(${idx})">Xem chi tiết</button>
+                        <button class="btn-del" onclick="deleteSubmission(${sub.id})">Xóa</button>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        function viewDetails(index) {
+            activeSubmission = allSubmissions[index];
+            if (!activeSubmission) return;
+
+            document.getElementById('modalTitle').textContent = `Bài làm của: ${activeSubmission.student_name} (${activeSubmission.username})`;
+            document.getElementById('modalSubTitle').textContent = `${activeSubmission.exam_title} — Điểm: ${activeSubmission.score}`;
+            document.getElementById('onlyWrongCheck').checked = false;
+            renderModalBody();
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function renderModalBody() {
+            const body = document.getElementById('modalBody');
+            const statsEl = document.getElementById('modalStats');
+            const onlyWrong = document.getElementById('onlyWrongCheck').checked;
+
+            if (!activeSubmission || !activeSubmission.details) {
+                statsEl.textContent = '';
+                body.innerHTML = '<p style="color:#666;">Bài thi này được nộp trước khi bật tính năng lưu chi tiết đáp án.</p>';
+                return;
+            }
+
+            const parsed = JSON.parse(activeSubmission.details);
+            let wrongCount = 0;
+
+            if (parsed.type === 'tn2025') {
+                let html = '';
+
+                // Phần I
+                if (parsed.p1 && parsed.p1.length > 0) {
+                    const list = onlyWrong ? parsed.p1.filter(item => !item.isCorrect) : parsed.p1;
+                    wrongCount += parsed.p1.filter(item => !item.isCorrect).length;
+                    html += `<div class="detail-section-title">Phần I. Trắc nghiệm nhiều lựa chọn</div>`;
+                    if (list.length === 0) {
+                        html += `<p style="font-size:13px; color:#155724;">Không có câu sai ở Phần I.</p>`;
+                    } else {
+                        html += `<table><thead><tr><th>Câu</th><th>Học sinh chọn</th><th>Đáp án đúng</th><th>Kết quả</th></tr></thead><tbody>`;
+                        html += list.map(item => `
+                            <tr class="${item.isCorrect ? '' : 'row-err'}">
+                                <td><b>Câu ${item.q}</b></td>
+                                <td>${item.user}</td>
+                                <td><b>${item.correct}</b></td>
+                                <td>${item.isCorrect ? '<span class="tag-ok">Đúng</span>' : '<span class="tag-err">Sai</span>'}</td>
+                            </tr>`).join('');
+                        html += `</tbody></table>`;
+                    }
+                }
+
+                // Phần II
+                if (parsed.p2 && parsed.p2.length > 0) {
+                    html += `<div class="detail-section-title">Phần II. Trắc nghiệm Đúng / Sai</div>`;
+                    let hasAnyRow = false;
+                    let tableRows = '';
+                    parsed.p2.forEach(qItem => {
+                        qItem.subs.forEach(s => {
+                            if (!s.isCorrect) wrongCount++;
+                            if (!onlyWrong || !s.isCorrect) {
+                                hasAnyRow = true;
+                                tableRows += `
+                                    <tr class="${s.isCorrect ? '' : 'row-err'}">
+                                        <td><b>Câu ${qItem.q} - Ý ${s.sub})</b></td>
+                                        <td>${s.user}</td>
+                                        <td><b>${s.correct}</b></td>
+                                        <td>${s.isCorrect ? '<span class="tag-ok">Đúng</span>' : '<span class="tag-err">Sai</span>'}</td>
+                                    </tr>`;
+                            }
+                        });
+                    });
+                    if (!hasAnyRow) {
+                        html += `<p style="font-size:13px; color:#155724;">Không có ý sai ở Phần II.</p>`;
+                    } else {
+                        html += `<table><thead><tr><th>Câu / Ý</th><th>Học sinh chọn</th><th>Đáp án đúng</th><th>Kết quả</th></tr></thead><tbody>${tableRows}</tbody></table>`;
+                    }
+                }
+
+                // Phần III
+                if (parsed.p3 && parsed.p3.length > 0) {
+                    const list = onlyWrong ? parsed.p3.filter(item => !item.isCorrect) : parsed.p3;
+                    wrongCount += parsed.p3.filter(item => !item.isCorrect).length;
+                    html += `<div class="detail-section-title">Phần III. Trả lời ngắn</div>`;
+                    if (list.length === 0) {
+                        html += `<p style="font-size:13px; color:#155724;">Không có câu sai ở Phần III.</p>`;
+                    } else {
+                        html += `<table><thead><tr><th>Câu</th><th>Học sinh trả lời</th><th>Đáp án đúng</th><th>Kết quả</th></tr></thead><tbody>`;
+                        html += list.map(item => `
+                            <tr class="${item.isCorrect ? '' : 'row-err'}">
+                                <td><b>Câu ${item.q}</b></td>
+                                <td>${item.user}</td>
+                                <td><b>${item.correct}</b></td>
+                                <td>${item.isCorrect ? '<span class="tag-ok">Đúng</span>' : '<span class="tag-err">Sai</span>'}</td>
+                            </tr>`).join('');
+                        html += `</tbody></table>`;
+                    }
+                }
+
+                statsEl.textContent = `Tổng số câu/ý sai: ${wrongCount}`;
+                body.innerHTML = html;
+            } else {
+                const items = parsed.items || [];
+                wrongCount = items.filter(item => !item.isCorrect).length;
+                const list = onlyWrong ? items.filter(item => !item.isCorrect) : items;
+                statsEl.textContent = `Tổng số câu sai: ${wrongCount} / ${items.length}`;
+
+                if (list.length === 0) {
+                    body.innerHTML = '<p style="color:#155724; font-weight:bold;">Học sinh làm đúng toàn bộ các câu!</p>';
+                    return;
+                }
+
+                body.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Câu</th>
+                                <th>Học sinh chọn</th>
+                                <th>Đáp án đúng</th>
+                                <th>Kết quả</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.map(item => `
+                                <tr class="${item.isCorrect ? '' : 'row-err'}">
+                                    <td><b>Câu ${item.q}</b></td>
+                                    <td>${item.user}</td>
+                                    <td><b>${item.correct}</b></td>
+                                    <td>${item.isCorrect ? '<span class="tag-ok">Đúng</span>' : '<span class="tag-err">Sai</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>`;
+            }
         }
 
         async function deleteSubmission(id) {

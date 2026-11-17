@@ -269,60 +269,75 @@
             let correctCount = 0;
             let totalScore = 0;
             let summaryMsg = '';
+            let answerDetails = {};
 
             if (currentExam.exam_type === 'tn2025' && parsedTn2025) {
+                // Phần I
                 let p1Correct = 0;
                 const p1Ans = parsedTn2025.p1.answers;
+                const p1Details = [];
                 for (let i = 1; i <= p1Ans.length; i++) {
                     const sel = document.querySelector(`input[name="p1_q${i}"]:checked`);
-                    if (sel && sel.value === p1Ans[i - 1]) {
-                        p1Correct++;
-                    }
+                    const userVal = sel ? sel.value : 'Bỏ trống';
+                    const isRight = Boolean(sel && sel.value === p1Ans[i - 1]);
+                    if (isRight) p1Correct++;
+                    p1Details.push({ q: i, user: userVal, correct: p1Ans[i - 1], isCorrect: isRight });
                 }
                 const p1Score = p1Correct * parsedTn2025.p1.points;
 
+                // Phần II
                 let p2SubCorrectTotal = 0;
                 let p2Score = 0;
                 const p2Ans = parsedTn2025.p2.answers;
                 const tfPointTable = [0, 0.1, 0.25, 0.5, 1.0];
+                const p2Details = [];
                 for (let i = 1; i <= p2Ans.length; i++) {
                     let subMatch = 0;
+                    const subsList = [];
                     ['a', 'b', 'c', 'd'].forEach((sub, idx) => {
                         const sel = document.querySelector(`input[name="p2_q${i}_${sub}"]:checked`);
-                        if (sel && sel.value === p2Ans[i - 1][idx]) {
-                            subMatch++;
-                        }
+                        const userVal = sel ? sel.value : 'Bỏ trống';
+                        const isRight = Boolean(sel && sel.value === p2Ans[i - 1][idx]);
+                        if (isRight) subMatch++;
+                        subsList.push({ sub, user: userVal, correct: p2Ans[i - 1][idx], isCorrect: isRight });
                     });
                     p2SubCorrectTotal += subMatch;
                     p2Score += tfPointTable[subMatch];
+                    p2Details.push({ q: i, subs: subsList, isCorrect: subMatch === 4 });
                 }
 
+                // Phần III
                 let p3Correct = 0;
                 const p3Ans = parsedTn2025.p3.answers;
+                const p3Details = [];
                 for (let i = 1; i <= p3Ans.length; i++) {
-                    const userRaw = document.getElementById(`p3_q${i}`).value;
+                    const userRaw = document.getElementById(`p3_q${i}`).value.trim();
                     const uNorm = normalizeShortAnswer(userRaw);
                     const kNorm = normalizeShortAnswer(p3Ans[i - 1]);
                     const isNumEqual = uNorm !== '' && !isNaN(Number(uNorm)) && !isNaN(Number(kNorm)) && Math.abs(Number(uNorm) - Number(kNorm)) < 1e-6;
-                    if (uNorm !== '' && (uNorm === kNorm || isNumEqual)) {
-                        p3Correct++;
-                    }
+                    const isRight = uNorm !== '' && (uNorm === kNorm || isNumEqual);
+                    if (isRight) p3Correct++;
+                    p3Details.push({ q: i, user: userRaw || 'Bỏ trống', correct: p3Ans[i - 1], isCorrect: isRight });
                 }
                 const p3Score = p3Correct * parsedTn2025.p3.points;
 
                 correctCount = p1Correct + p2SubCorrectTotal + p3Correct;
                 totalScore = p1Score + p2Score + p3Score;
+                answerDetails = { type: 'tn2025', p1: p1Details, p2: p2Details, p3: p3Details };
                 summaryMsg = `Nộp bài thành công!\n- Phần I: ${p1Correct}/${p1Ans.length} câu (${p1Score.toFixed(2)}đ)\n- Phần II: ${p2SubCorrectTotal}/${p2Ans.length * 4} ý (${p2Score.toFixed(2)}đ)\n- Phần III: ${p3Correct}/${p3Ans.length} câu (${p3Score.toFixed(2)}đ)\n=> Tổng điểm: ${totalScore.toFixed(2)}`;
             } else {
                 const key = currentExam.answer_key;
                 const totalQ = key.length;
+                const mcqDetails = [];
                 for (let i = 1; i <= totalQ; i++) {
                     const selected = document.querySelector(`input[name="q${i}"]:checked`);
-                    if (selected && selected.value === key[i - 1]) {
-                        correctCount++;
-                    }
+                    const userVal = selected ? selected.value : 'Bỏ trống';
+                    const isRight = Boolean(selected && selected.value === key[i - 1]);
+                    if (isRight) correctCount++;
+                    mcqDetails.push({ q: i, user: userVal, correct: key[i - 1], isCorrect: isRight });
                 }
                 totalScore = (correctCount / totalQ) * 10;
+                answerDetails = { type: 'mcq', items: mcqDetails };
                 summaryMsg = `Nộp bài thành công!\nSố câu đúng: ${correctCount}/${totalQ}\nĐiểm số: ${totalScore.toFixed(2)}/10`;
             }
 
@@ -332,7 +347,8 @@
                 student_name: currentUser.full_name,
                 exam_title: currentExam.title,
                 correct_count: correctCount,
-                score: finalScoreStr
+                score: finalScoreStr,
+                details: JSON.stringify(answerDetails)
             }]);
 
             alert(summaryMsg);
