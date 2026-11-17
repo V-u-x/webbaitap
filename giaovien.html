@@ -2,46 +2,128 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản Lý Đề Thi & Học Sinh - Giáo Viên</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-        body { background: #f0f2f5; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 15px 24px; border-radius: 8px; margin-bottom: 20px; }
-        .grid { display: flex; gap: 20px; margin-bottom: 20px; }
-        .card { background: #fff; padding: 20px; border-radius: 8px; flex: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-        .card h3 { margin-bottom: 12px; color: #1c1e21; }
-        input[type="text"], input[type="file"], textarea { width: 100%; padding: 10px; margin: 6px 0 14px; border: 1px solid #ccc; border-radius: 6px; }
-        textarea { height: 90px; text-transform: uppercase; resize: none; }
-        .btn { background: #1877f2; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
+        body { background: #f0f2f5; padding: 14px; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: #fff; padding: 14px 18px; border-radius: 8px; margin-bottom: 18px; }
+        .header h2 { font-size: 18px; }
+        .grid { display: flex; gap: 18px; margin-bottom: 18px; align-items: flex-start; }
+        .card { background: #fff; padding: 18px; border-radius: 8px; flex: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.08); min-width: 0; }
+        .card h3 { margin-bottom: 12px; color: #1c1e21; font-size: 17px; }
+        label { display: block; font-size: 14px; font-weight: 500; color: #333; margin-top: 4px; }
+        input[type="text"], input[type="number"], input[type="file"], select, textarea { width: 100%; padding: 9px 10px; margin: 5px 0 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+        textarea { height: 80px; text-transform: uppercase; resize: vertical; }
+        .row-2 { display: flex; gap: 12px; }
+        .row-2 > div { flex: 1; }
+        .part-box { background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .part-box h4 { font-size: 15px; color: #1877f2; margin-bottom: 8px; }
+        .tf-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding: 6px 0; border-bottom: 1px dashed #ddd; font-size: 14px; }
+        .tf-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tf-item { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 3px 6px; display: flex; align-items: center; gap: 4px; }
+        .sa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-top: 6px; }
+        .sa-item label { font-size: 13px; margin: 0 0 2px; }
+        .sa-item input { margin: 0; padding: 7px 8px; }
+        .btn { background: #1877f2; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 4px; }
         .btn-green { background: #28a745; }
         .btn:disabled { background: #9cb4d8; cursor: not-allowed; }
-        .exam-item { display: flex; justify-content: space-between; padding: 10px 8px; border-bottom: 1px solid #eee; align-items: center; }
-        .btn-del { background: #dc3545; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; }
+        .exam-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 6px; border-bottom: 1px solid #eee; align-items: center; }
+        .badge { display: inline-block; font-size: 12px; padding: 2px 7px; border-radius: 4px; background: #e7f3ff; color: #1877f2; margin-top: 3px; }
+        .btn-del { background: #dc3545; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+        .table-wrap { width: 100%; overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; min-width: 450px; }
+        th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-size: 14px; }
         th { background: #f8f9fa; }
-        .scroll-box { max-height: 280px; overflow-y: auto; }
+        .scroll-box { max-height: 360px; overflow-y: auto; }
+        .hidden { display: none; }
+
+        @media (max-width: 768px) {
+            .grid, .row-2 { flex-direction: column; gap: 0; }
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>QUẢN LÝ ĐỀ THI, TÀI KHOẢN & ĐIỂM HỌC SINH</h2>
-        <button onclick="window.location.href='index.html'" style="padding: 8px 16px; cursor: pointer;">Đăng xuất</button>
+        <h2>QUẢN LÝ ĐỀ THI, TÀI KHOẢN & ĐIỂM</h2>
+        <button onclick="window.location.href='index.html'" style="padding: 8px 14px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer;">Đăng xuất</button>
     </div>
 
-    <!-- Hàng 1: Quản lý đề thi -->
     <div class="grid">
         <div class="card">
             <h3>1. Đăng tải đề thi mới</h3>
             <label>Tên đề thi:</label>
-            <input type="text" id="examTitle" placeholder="VD: Hóa 11 - Chương 3 - Đề 1">
+            <input type="text" id="examTitle" placeholder="VD: Đề thi thử TN THPT 2025 - Số 01">
+
+            <div class="row-2">
+                <div>
+                    <label>Thời gian làm bài (phút):</label>
+                    <input type="number" id="examDuration" value="50" min="1" max="300">
+                </div>
+                <div>
+                    <label>Cấu trúc đề thi:</label>
+                    <select id="examType" onchange="toggleExamForm()">
+                        <option value="mcq">Trắc nghiệm nhiều lựa chọn</option>
+                        <option value="tn2025">Tốt nghiệp THPT 2025 (3 phần)</option>
+                    </select>
+                </div>
+            </div>
 
             <label>Chọn file đề bài (PDF):</label>
             <input type="file" id="pdfInput" accept="application/pdf">
 
-            <label>Chuỗi đáp án đúng (40 ký tự liền nhau):</label>
-            <textarea id="answerKey" maxlength="40" placeholder="ABCDABCD..."></textarea>
+            <!-- Khu vực nhập đáp án Trắc nghiệm thường -->
+            <div id="mcqSection" class="part-box">
+                <h4>Đáp án trắc nghiệm (A, B, C, D)</h4>
+                <label>Số lượng câu hỏi:</label>
+                <input type="number" id="mcqCount" value="40" min="1" max="200" oninput="updateMcqCounter()">
+
+                <label>Chuỗi đáp án đúng (<span id="mcqCounter" style="color:#1877f2;">0 / 40</span> câu):</label>
+                <textarea id="answerKey" placeholder="Nhập liền chuỗi A, B, C, D..." oninput="updateMcqCounter()"></textarea>
+            </div>
+
+            <!-- Khu vực nhập đáp án Tốt nghiệp 2025 -->
+            <div id="tn2025Section" class="hidden">
+                <div class="part-box">
+                    <h4>Phần I. Trắc nghiệm nhiều lựa chọn</h4>
+                    <div class="row-2">
+                        <div>
+                            <label>Số câu Phần I:</label>
+                            <input type="number" id="p1Count" value="18" min="0" max="100" oninput="updateP1Counter()">
+                        </div>
+                        <div>
+                            <label>Điểm mỗi câu:</label>
+                            <input type="number" id="p1Point" value="0.25" step="0.05" min="0">
+                        </div>
+                    </div>
+                    <label>Chuỗi đáp án Phần I (<span id="p1Counter" style="color:#1877f2;">0 / 18</span> câu):</label>
+                    <textarea id="p1Key" style="height:65px;" placeholder="ABCDABCD..." oninput="updateP1Counter()"></textarea>
+                </div>
+
+                <div class="part-box">
+                    <h4>Phần II. Trắc nghiệm Đúng / Sai</h4>
+                    <p style="font-size:12px; color:#555; margin-bottom:8px;">Thang điểm tự động chuẩn 2025: Đúng 1 ý = 0.1đ | 2 ý = 0.25đ | 3 ý = 0.5đ | 4 ý = 1.0đ.</p>
+                    <label>Số câu Đúng/Sai:</label>
+                    <input type="number" id="p2Count" value="4" min="0" max="30" oninput="renderP2Inputs()">
+                    <div id="p2Container"></div>
+                </div>
+
+                <div class="part-box">
+                    <h4>Phần III. Trắc nghiệm Trả lời ngắn</h4>
+                    <div class="row-2">
+                        <div>
+                            <label>Số câu Trả lời ngắn:</label>
+                            <input type="number" id="p3Count" value="6" min="0" max="30" oninput="renderP3Inputs()">
+                        </div>
+                        <div>
+                            <label>Điểm mỗi câu (0.25 hoặc 0.5):</label>
+                            <input type="number" id="p3Point" value="0.25" step="0.05" min="0">
+                        </div>
+                    </div>
+                    <div class="sa-grid" id="p3Container"></div>
+                </div>
+            </div>
 
             <button class="btn" id="uploadBtn" onclick="uploadExam()">Tải đề lên hệ thống</button>
         </div>
@@ -52,7 +134,6 @@
         </div>
     </div>
 
-    <!-- Hàng 2: Cấp và quản lý tài khoản học sinh -->
     <div class="grid">
         <div class="card">
             <h3>2. Cấp tài khoản học sinh mới</h3>
@@ -69,8 +150,8 @@
         </div>
 
         <div class="card">
-            <h3>Danh sách tài khoản học sinh đã cấp</h3>
-            <div class="scroll-box">
+            <h3>Danh sách tài khoản học sinh</h3>
+            <div class="scroll-box table-wrap">
                 <table>
                     <thead>
                         <tr>
@@ -88,28 +169,29 @@
         </div>
     </div>
 
-    <!-- Hàng 3: Lịch sử làm bài & điểm số -->
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>3. Lịch sử làm bài & Điểm số của học sinh</h3>
-            <button onclick="loadSubmissions()" style="padding:6px 14px; cursor:pointer;">Làm mới bảng điểm</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h3>3. Lịch sử làm bài & Điểm số</h3>
+            <button onclick="loadSubmissions()" style="padding:7px 14px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor:pointer;">Làm mới</button>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Họ và tên</th>
-                    <th>Tài khoản</th>
-                    <th>Đề thi đã làm</th>
-                    <th>Số câu đúng</th>
-                    <th>Điểm số</th>
-                    <th>Thời gian nộp</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody id="submissionList">
-                <tr><td colspan="7">Đang tải dữ liệu...</td></tr>
-            </tbody>
-        </table>
+        <div class="table-wrap">
+            <table style="min-width: 650px;">
+                <thead>
+                    <tr>
+                        <th>Họ và tên</th>
+                        <th>Tài khoản</th>
+                        <th>Đề thi đã làm</th>
+                        <th>Số câu/ý đúng</th>
+                        <th>Điểm số</th>
+                        <th>Thời gian nộp</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="submissionList">
+                    <tr><td colspan="7">Đang tải dữ liệu...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
@@ -117,16 +199,121 @@
         const SUPABASE_KEY = 'sb_publishable_aXGbcNmPBrtmNOJo4dxgFA_Op6JcZKz';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // --- QUẢN LÝ ĐỀ THI ---
+        function toggleExamForm() {
+            const type = document.getElementById('examType').value;
+            document.getElementById('mcqSection').classList.toggle('hidden', type !== 'mcq');
+            document.getElementById('tn2025Section').classList.toggle('hidden', type !== 'tn2025');
+        }
+
+        function updateMcqCounter() {
+            const target = parseInt(document.getElementById('mcqCount').value) || 0;
+            const raw = document.getElementById('answerKey').value.replace(/[^a-dA-D]/g, '').toUpperCase();
+            document.getElementById('answerKey').value = raw;
+            document.getElementById('mcqCounter').textContent = `${raw.length} / ${target}`;
+        }
+
+        function updateP1Counter() {
+            const target = parseInt(document.getElementById('p1Count').value) || 0;
+            const raw = document.getElementById('p1Key').value.replace(/[^a-dA-D]/g, '').toUpperCase();
+            document.getElementById('p1Key').value = raw;
+            document.getElementById('p1Counter').textContent = `${raw.length} / ${target}`;
+        }
+
+        function renderP2Inputs() {
+            const count = parseInt(document.getElementById('p2Count').value) || 0;
+            const container = document.getElementById('p2Container');
+            let html = '';
+            for (let i = 1; i <= count; i++) {
+                html += `<div class="tf-row"><b>Câu ${i}:</b><div class="tf-group">`;
+                ['a', 'b', 'c', 'd'].forEach(sub => {
+                    html += `
+                        <div class="tf-item">
+                            <span>${sub})</span>
+                            <select id="p2_${i}_${sub}" style="width:auto; margin:0; padding:2px 4px; font-size:13px;">
+                                <option value="Đ">Đúng</option>
+                                <option value="S">Sai</option>
+                            </select>
+                        </div>`;
+                });
+                html += `</div></div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderP3Inputs() {
+            const count = parseInt(document.getElementById('p3Count').value) || 0;
+            const container = document.getElementById('p3Container');
+            let html = '';
+            for (let i = 1; i <= count; i++) {
+                html += `
+                    <div class="sa-item">
+                        <label>Câu ${i}:</label>
+                        <input type="text" id="p3_${i}" placeholder="VD: 12.5">
+                    </div>`;
+            }
+            container.innerHTML = html;
+        }
+
         async function uploadExam() {
             const title = document.getElementById('examTitle').value.trim();
+            const duration = parseInt(document.getElementById('examDuration').value);
+            const examType = document.getElementById('examType').value;
             const file = document.getElementById('pdfInput').files[0];
-            const key = document.getElementById('answerKey').value.trim().toUpperCase();
             const btn = document.getElementById('uploadBtn');
 
-            if (!title || !file || key.length !== 40) {
-                alert('Vui lòng nhập tên đề, chọn file PDF và nhập đủ 40 ký tự đáp án!');
+            if (!title || !file || !duration || duration < 1) {
+                alert('Vui lòng nhập tên đề, thời gian làm bài và chọn file PDF!');
                 return;
+            }
+
+            let finalAnswerKey = '';
+
+            if (examType === 'mcq') {
+                const count = parseInt(document.getElementById('mcqCount').value);
+                const key = document.getElementById('answerKey').value.trim().toUpperCase();
+                if (!count || count < 1 || key.length !== count) {
+                    alert(`Vui lòng nhập đủ ${count} ký tự đáp án (A, B, C, D)! Hiện tại mới có ${key.length} ký tự.`);
+                    return;
+                }
+                finalAnswerKey = key;
+            } else {
+                const p1Count = parseInt(document.getElementById('p1Count').value) || 0;
+                const p1Point = parseFloat(document.getElementById('p1Point').value) || 0;
+                const p1Key = document.getElementById('p1Key').value.trim().toUpperCase();
+                if (p1Key.length !== p1Count) {
+                    alert(`Phần I yêu cầu đủ ${p1Count} đáp án! Hiện tại mới nhập ${p1Key.length} đáp án.`);
+                    return;
+                }
+
+                const p2Count = parseInt(document.getElementById('p2Count').value) || 0;
+                const p2Answers = [];
+                for (let i = 1; i <= p2Count; i++) {
+                    const str = ['a', 'b', 'c', 'd'].map(sub => document.getElementById(`p2_${i}_${sub}`).value).join('');
+                    p2Answers.push(str);
+                }
+
+                const p3Count = parseInt(document.getElementById('p3Count').value) || 0;
+                const p3Point = parseFloat(document.getElementById('p3Point').value) || 0;
+                const p3Answers = [];
+                for (let i = 1; i <= p3Count; i++) {
+                    const val = document.getElementById(`p3_${i}`).value.trim();
+                    if (!val) {
+                        alert(`Vui lòng nhập đáp án cho Câu ${i} ở Phần III (Trả lời ngắn)!`);
+                        return;
+                    }
+                    p3Answers.push(val);
+                }
+
+                if (p1Count + p2Count + p3Count === 0) {
+                    alert('Đề thi phải có ít nhất 1 câu hỏi!');
+                    return;
+                }
+
+                finalAnswerKey = JSON.stringify({
+                    p1: { answers: p1Key, points: p1Point },
+                    p2: { answers: p2Answers },
+                    p3: { answers: p3Answers, points: p3Point }
+                });
             }
 
             btn.disabled = true;
@@ -143,9 +330,13 @@
             }
 
             const { data: urlData } = supabaseClient.storage.from('dethi-pdfs').getPublicUrl(fileName);
-            const { error: dbError } = await supabaseClient.from('exams').insert([
-                { title: title, pdf_url: urlData.publicUrl, answer_key: key }
-            ]);
+            const { error: dbError } = await supabaseClient.from('exams').insert([{
+                title: title,
+                pdf_url: urlData.publicUrl,
+                answer_key: finalAnswerKey,
+                duration: duration,
+                exam_type: examType
+            }]);
 
             if (dbError) {
                 alert('Lỗi lưu dữ liệu: ' + dbError.message);
@@ -154,6 +345,10 @@
                 document.getElementById('examTitle').value = '';
                 document.getElementById('pdfInput').value = '';
                 document.getElementById('answerKey').value = '';
+                document.getElementById('p1Key').value = '';
+                updateMcqCounter();
+                updateP1Counter();
+                renderP3Inputs();
                 loadExams();
             }
 
@@ -168,12 +363,24 @@
                 listEl.innerHTML = '<p style="color:#666; margin-top:10px;">Chưa có đề thi nào.</p>';
                 return;
             }
-            listEl.innerHTML = data.map(exam => `
-                <div class="exam-item">
-                    <span><b>${exam.title}</b></span>
-                    <button class="btn-del" onclick="deleteExam(${exam.id}, '${exam.pdf_url}')">Xóa</button>
-                </div>
-            `).join('');
+            listEl.innerHTML = data.map(exam => {
+                const dur = exam.duration || 60;
+                let infoText = '';
+                if (exam.exam_type === 'tn2025') {
+                    const parsed = JSON.parse(exam.answer_key);
+                    infoText = `TN 2025 (${parsed.p1.answers.length} TN - ${parsed.p2.answers.length} Đ/S - ${parsed.p3.answers.length} TLN) | ${dur} phút`;
+                } else {
+                    infoText = `Trắc nghiệm (${exam.answer_key.length} câu) | ${dur} phút`;
+                }
+                return `
+                    <div class="exam-item">
+                        <div>
+                            <b>${exam.title}</b><br>
+                            <span class="badge">${infoText}</span>
+                        </div>
+                        <button class="btn-del" onclick="deleteExam(${exam.id}, '${exam.pdf_url}')">Xóa</button>
+                    </div>`;
+            }).join('');
         }
 
         async function deleteExam(id, pdfUrl) {
@@ -186,7 +393,6 @@
             loadExams();
         }
 
-        // --- CẤP & QUẢN LÝ TÀI KHOẢN HỌC SINH ---
         async function createStudentAccount() {
             const full_name = document.getElementById('stuFullName').value.trim();
             const username = document.getElementById('stuUsername').value.trim().toLowerCase();
@@ -242,7 +448,6 @@
             loadStudents();
         }
 
-        // --- LỊCH SỬ LÀM BÀI ---
         async function loadSubmissions() {
             const { data, error } = await supabaseClient.from('submissions').select('*').order('id', { ascending: false });
             const tbody = document.getElementById('submissionList');
@@ -255,7 +460,7 @@
                     <td><b>${sub.student_name}</b></td>
                     <td>${sub.username}</td>
                     <td>${sub.exam_title}</td>
-                    <td>${sub.correct_count}/40</td>
+                    <td>${sub.correct_count} câu/ý</td>
                     <td style="color:#d9534f; font-weight:bold;">${sub.score}</td>
                     <td>${new Date(sub.created_at).toLocaleString('vi-VN')}</td>
                     <td><button class="btn-del" onclick="deleteSubmission(${sub.id})">Xóa</button></td>
@@ -269,6 +474,8 @@
             loadSubmissions();
         }
 
+        renderP2Inputs();
+        renderP3Inputs();
         loadExams();
         loadStudents();
         loadSubmissions();
